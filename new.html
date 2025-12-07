@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BINGO English Learning Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 100px);
+            grid-template-rows: repeat(5, 100px);
+            gap: 5px;
+            margin: 20px auto;
+            width: 525px;
+        }
+        .cell {
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .cell.open {
+            background-color: #2196F3;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .modal-content button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .modal-content button:hover {
+            background-color: #45a049;
+        }
+        #winner {
+            display: none;
+            color: red;
+            font-size: 24px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>BINGO English Learning Game</h1>
+    <p>Click on a cell to answer a question. Get one from each column (B, I, N, G, O) to win!</p>
+    <div class="grid" id="bingoGrid"></div>
+    <div id="winner">Congratulations! You won!</div>
+
+    <div id="questionModal" class="modal">
+        <div class="modal-content">
+            <span id="closeModal" style="float:right; cursor:pointer;">&times;</span>
+            <h2>Question</h2>
+            <p id="questionText"></p>
+            <input type="text" id="answerInput" placeholder="Your answer">
+            <button id="submitAnswer">Submit</button>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            // B Column (Grammar)
+            { q: "What is the past tense of 'go'?", a: "went" },
+            { q: "Complete the sentence: She ___ to school every day. (use correct form of 'walk')", a: "walks" },
+            { q: "What is a synonym for 'happy'?", a: "joyful" },
+            { q: "Identify the noun in: 'The quick brown fox jumps over the lazy dog.'", a: "fox" },
+            { q: "What is the plural of 'child'?", a: "children" },
+            // I Column (Vocabulary)
+            { q: "What does 'ubiquitous' mean?", a: "present everywhere" },
+            { q: "Choose the correct word: The ___ of the story is very interesting. (plot/plotting)", a: "plot" },
+            { q: "What is an antonym of 'benevolent'?", a: "malevolent" },
+            { q: "What does 'ephemeral' mean?", a: "lasting for a short time" },
+            { q: "Complete: The ___ is the study of words. (linguistics/linguist)", a: "linguistics" },
+            // N Column (Reading Comprehension)
+            { q: "In the sentence 'I have been waiting for an hour,' what tense is used?", a: "present perfect continuous" },
+            { q: "What is the main idea of a paragraph about climate change?", a: "The effects of global warming" }, // Simplified
+            { q: "Identify the subject in: 'The cat sat on the mat.'", a: "The cat" },
+            { q: "What does 'infer' mean in reading?", a: "to conclude from evidence" },
+            { q: "What is a thesis statement?", a: "a sentence that expresses the main idea" },
+            // G Column (Writing)
+            { q: "What is a 'hook' in an essay?", a: "an opening that grabs attention" },
+            { q: "Correct the sentence: 'She don't like apples.'", a: "She doesn't like apples." },
+            { q: "What is the purpose of a conclusion?", a: "to summarize and restate the thesis" },
+            { q: "What is a 'transition word'?", a: "a word that connects ideas" },
+            { q: "What is 'plagiarism'?", a: "using someone else's work without credit" },
+            // O Column (Speaking/Listening)
+            { q: "What is 'intonation' in speaking?", a: "the rise and fall of voice" },
+            { q: "What does 'active listening' mean?", a: "fully concentrating on the speaker" },
+            { q: "Complete: 'Could you ___ the volume?' (turn up/turn on)", a: "turn up" },
+            { q: "What is a 'debate'?", a: "a discussion with opposing views" },
+            { q: "What is 'fluency' in language?", a: "the ability to speak smoothly" }
+        ];
+
+        const grid = document.getElementById('bingoGrid');
+        const modal = document.getElementById('questionModal');
+        const questionText = document.getElementById('questionText');
+        const answerInput = document.getElementById('answerInput');
+        const submitBtn = document.getElementById('submitAnswer');
+        const closeModal = document.getElementById('closeModal');
+        const winnerDiv = document.getElementById('winner');
+
+        let currentCell = null;
+        let openedCells = Array(25).fill(false);
+        const letters = ['B', 'I', 'N', 'G', 'O'];
+
+        // Create grid
+        for (let i = 0; i < 25; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.textContent = '?';
+            cell.dataset.index = i;
+            cell.addEventListener('click', () => openQuestion(i));
+            grid.appendChild(cell);
+        }
+
+        function openQuestion(index) {
+            if (openedCells[index]) return;
+            currentCell = index;
+            questionText.textContent = questions[index].q;
+            answerInput.value = '';
+            modal.style.display = 'block';
+        }
+
+        submitBtn.addEventListener('click', () => {
+            const answer = answerInput.value.trim().toLowerCase();
+            const correct = questions[currentCell].a.toLowerCase();
+            if (answer === correct) {
+                openedCells[currentCell] = true;
+                const cell = grid.children[currentCell];
+                cell.classList.add('open');
+                cell.textContent = letters[Math.floor(currentCell / 5)];
+                checkBingo();
+            } else {
+                alert('Incorrect answer. Try again!');
+            }
+            modal.style.display = 'none';
+        });
+
+        closeModal.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        function checkBingo() {
+            // Check if at least one cell is open in each column (B, I, N, G, O)
+            const hasB = openedCells.slice(0, 5).some(cell => cell); // Column 0
+            const hasI = openedCells.slice(5, 10).some(cell => cell); // Column 1
+            const hasN = openedCells.slice(10, 15).some(cell => cell); // Column 2
+            const hasG = openedCells.slice(15, 20).some(cell => cell); // Column 3
+            const hasO = openedCells.slice(20, 25).some(cell => cell); // Column 4
+
+            if (hasB && hasI && hasN && hasG && hasO) {
+                winnerDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
